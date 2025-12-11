@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2012 Convocation Photo Gallery</title>
+    <title>Photo Gallery</title>
     <style>
         * {
             margin: 0;
@@ -366,7 +366,7 @@
     <!-- Login Container -->
     <div class="login-container" id="loginContainer">
         <div class="login-box">
-            <h2>2012 Convocation</h2>
+            <h2>Photo Gallery</h2>
             <p>Photo Gallery Login</p>
             <form onsubmit="handleLogin(event)">
                 <div class="form-group">
@@ -383,12 +383,15 @@
     <div class="gallery-wrapper" id="galleryWrapper">
         <div class="container">
             <div class="header">
-                <h1>2012 Convocation</h1>
+                <h1>Photo Gallery</h1>
                 <p>Photo Gallery</p>
             </div>
 
             <div class="gallery" id="gallery">
             <!-- Gallery items will be generated here -->
+            </div>
+            <div id="pagination" style="text-align:center; margin: 20px 0;">
+                <!-- Pagination controls will be injected here -->
             </div>
 
             <div class="footer">
@@ -459,6 +462,11 @@
 
         let photos = [];
         let currentImageIndex = 0;
+        // Pagination state
+        let currentPage = 1;
+        const pageSize = 24; // thumbnails per page (adjust as needed)
+        let totalPages = 1;
+
         const modal = document.getElementById('imageModal');
         const closeBtn = document.querySelector('.close');
 
@@ -469,20 +477,29 @@
             return videoExtensions.includes(ext);
         }
 
-        // Initialize gallery
+        // Initialize gallery (renders only current page thumbnails)
         function initGallery() {
             const gallery = document.getElementById('gallery');
             gallery.innerHTML = '';
+
+            // update total pages
+            totalPages = Math.max(1, Math.ceil(photos.length / pageSize));
+            if (currentPage > totalPages) currentPage = totalPages;
+
             photos.forEach((photo, index) => {
+                // Only render thumbnails that fall on the current page
+                const start = (currentPage - 1) * pageSize;
+                const end = currentPage * pageSize; // exclusive
+                if (index < start || index >= end) return;
+
                 const item = document.createElement('div');
                 item.className = 'gallery-item';
                 const isVideoFile = isVideo(photo.src);
-                const mediaType = isVideoFile ? 'VIDEO' : 'PHOTO';
-                
+
                 if (isVideoFile) {
                     item.innerHTML = `
-                        <video onclick="openModal(${index})">
-                            <source src="${photo.src}" type="video/mp4">
+                        <video onclick="openModal(${index})" preload="metadata" muted playsinline>
+                            <source src="${photo.src}">
                         </video>
                         <div class="media-type-badge">▶ VIDEO</div>
                         <div class="overlay">
@@ -500,6 +517,84 @@
                 }
                 gallery.appendChild(item);
             });
+
+            renderPagination();
+        }
+
+        // Render pagination controls
+        function renderPagination() {
+            const container = document.getElementById('pagination');
+            container.innerHTML = '';
+
+            if (totalPages <= 1) return; // no controls needed
+
+            const prev = document.createElement('button');
+            prev.textContent = '◀ Prev';
+            prev.style.margin = '0 8px';
+            prev.onclick = () => { goToPage(currentPage - 1); };
+            prev.disabled = currentPage === 1;
+            container.appendChild(prev);
+
+            // show a compact set of page numbers (window around current page)
+            const maxButtons = 7;
+            let start = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+            let end = Math.min(totalPages, start + maxButtons - 1);
+            if (end - start < maxButtons - 1) {
+                start = Math.max(1, end - maxButtons + 1);
+            }
+
+            if (start > 1) {
+                container.appendChild(pageButton(1));
+                if (start > 2) {
+                    const dots = document.createElement('span');
+                    dots.textContent = ' ... ';
+                    container.appendChild(dots);
+                }
+            }
+
+            for (let p = start; p <= end; p++) {
+                container.appendChild(pageButton(p));
+            }
+
+            if (end < totalPages) {
+                if (end < totalPages - 1) {
+                    const dots = document.createElement('span');
+                    dots.textContent = ' ... ';
+                    container.appendChild(dots);
+                }
+                container.appendChild(pageButton(totalPages));
+            }
+
+            const next = document.createElement('button');
+            next.textContent = 'Next ▶';
+            next.style.margin = '0 8px';
+            next.onclick = () => { goToPage(currentPage + 1); };
+            next.disabled = currentPage === totalPages;
+            container.appendChild(next);
+        }
+
+        function pageButton(p) {
+            const btn = document.createElement('button');
+            btn.textContent = p;
+            btn.style.margin = '0 4px';
+            if (p === currentPage) {
+                btn.disabled = true;
+                btn.style.fontWeight = '700';
+            }
+            btn.onclick = () => { goToPage(p); };
+            return btn;
+        }
+
+        function goToPage(p) {
+            if (p < 1) p = 1;
+            if (p > totalPages) p = totalPages;
+            if (p === currentPage) return;
+            currentPage = p;
+            // re-render thumbnails for new page
+            initGallery();
+            // scroll to top of gallery for usability
+            const galleryTop = document.getElementById('gallery').offsetTop;
+            window.scrollTo({ top: galleryTop - 20, behavior: 'smooth' });
         }
 
         function openModal(index) {
